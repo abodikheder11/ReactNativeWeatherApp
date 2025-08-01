@@ -2,7 +2,6 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   Alert,
   FlatList,
   Image,
@@ -11,51 +10,33 @@ import {
 import { Feather, Entypo } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
 import { LinearGradient } from "expo-linear-gradient";
-import { fetchDailyWeather, fetchWeather } from "../util/weatherService";
 import * as Location from "expo-location";
+import { useDispatch, useSelector } from "react-redux";
+import { fetchWeather } from "../redux/slices/weatherSlice";
 export default function ForecastPage() {
-  const [dailyWeather, setDailyWeather] = useState([]);
-  const [loading, setLoading] = useState();
-  const [location, setLocation] = useState();
-  const [currentTemp, setCurrentTemp] = useState();
-  const [airQuality, setAirQuality] = useState();
-  const [sunrise, setSunrise] = useState();
-  const [sunset, setSunset] = useState();
-  const [uvIndex, setUvIndex] = useState();
-  const [humidity, setHumidity] = useState();
+  const dispatch = useDispatch();
+  const { data, status, error } = useSelector((state) => state.weather);
+  const loading = status === "loading";
 
   useEffect(() => {
     async function fetchMyDailyWeather() {
-      setLoading(true);
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
         Alert.alert(
           "Location Required",
           "We need to get your location in order to give you the weather Forecast in your location"
         );
-        setLoading(false);
         return;
       }
       const location = await Location.getCurrentPositionAsync();
       const lat = location.coords.latitude;
       const lon = location.coords.longitude;
-      const weather = await fetchWeather({ lat, lon });
-      if (weather) {
-        setDailyWeather(weather.dailyForecast);
-        setLocation(weather.location);
-        setCurrentTemp(weather.currentTemp.temp);
-        setAirQuality(weather.currentTemp.airQuality);
-        setSunrise(weather.sunrise);
-        setSunset(weather.sunset);
-        setUvIndex(weather.uvIndex);
-        setHumidity(weather.humidity);
-      }
-      setLoading(false);
+      dispatch(fetchWeather({ lat, lon }));
     }
     fetchMyDailyWeather();
   }, []);
 
-  function getAirQualityDesription(aqi) {
+  function getAirQualityDescription(aqi) {
     switch (aqi) {
       case 1:
         return "Good : No Health Risk ";
@@ -73,7 +54,9 @@ export default function ForecastPage() {
         return "Unknown Air Quality";
     }
   }
-  const airQualityDesription = getAirQualityDesription(airQuality);
+  const airQualityDesription = getAirQualityDescription(
+    data?.currentTemp.airQuality
+  );
 
   return (
     <LinearGradient
@@ -90,22 +73,22 @@ export default function ForecastPage() {
         />
       ) : (
         <>
-          <Text style={styles.tempBasicInfo}>{location}</Text>
+          <Text style={styles.tempBasicInfo}>{data?.location}</Text>
           <View style={styles.rowContainer}>
             <Text style={styles.tempBasicInfo}>
-              Max: {Math.round(currentTemp) + 2}°
+              Max: {Math.round(data?.currentTemp.temp) + 2}°
             </Text>
             <Text style={styles.tempBasicInfo}>
-              Min: {Math.round(currentTemp) - 2}°
+              Min: {Math.round(data?.currentTemp.temp) - 2}°
             </Text>
           </View>
           <View style={styles.outerDailyContainer}>
             <Text style={styles.sevenDays}>7-Days Forecasts</Text>
-            {dailyWeather ? (
+            {data?.dailyForecast ? (
               <FlatList
                 showsHorizontalScrollIndicator={false}
                 horizontal
-                data={dailyWeather}
+                data={data?.dailyForecast}
                 keyExtractor={(item, index) => index.toString()}
                 renderItem={({ item }) => (
                   <LinearGradient
@@ -141,7 +124,7 @@ export default function ForecastPage() {
                 <Text style={styles.titles}> AIR QUALITY</Text>
               </View>
               <Text style={styles.tempInfo}>
-                {airQuality}-{airQualityDesription}
+                {data?.currentTemp.airQuality}-{airQualityDesription}
               </Text>
             </View>
             <View style={styles.outerSmallContainer}>
@@ -150,14 +133,14 @@ export default function ForecastPage() {
                   <Feather name="sun" size={24} color="white" />
                   <Text style={styles.titles}> SUNRISE</Text>
                 </View>
-                <Text style={styles.tempInfo}>{sunrise}</Text>
+                <Text style={styles.tempInfo}>{data?.sunrise}</Text>
               </View>
               <View style={styles.smallContainer}>
                 <View style={styles.rowContainer}>
                   <Feather name="sunset" size={24} color="white" />
                   <Text style={styles.titles}> SUNSET</Text>
                 </View>
-                <Text style={styles.tempInfo}>{sunset}</Text>
+                <Text style={styles.tempInfo}>{data?.sunset}</Text>
               </View>
             </View>
             <View style={styles.outerSmallContainer}>
@@ -166,14 +149,14 @@ export default function ForecastPage() {
                   <Feather name="sunset" size={24} color="white" />
                   <Text style={styles.titles}> UV INDEX</Text>
                 </View>
-                <Text style={styles.tempInfo}>{uvIndex}-Moderate</Text>
+                <Text style={styles.tempInfo}>{data?.uvIndex}-Moderate</Text>
               </View>
               <View style={styles.smallContainer}>
                 <View style={styles.rowContainer}>
                   <Feather name="sunset" size={24} color="white" />
                   <Text style={styles.titles}> Humidity</Text>
                 </View>
-                <Text style={styles.tempInfo}>{humidity}-Moderate</Text>
+                <Text style={styles.tempInfo}>{data?.humidity}-Moderate</Text>
               </View>
             </View>
           </LinearGradient>

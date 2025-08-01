@@ -8,43 +8,35 @@ import {
   ActivityIndicator,
   Pressable,
 } from "react-native";
-import { Feather, Entypo } from "@expo/vector-icons";
-import React, { useEffect, useState } from "react";
+import { Feather } from "@expo/vector-icons";
+import React, { useEffect } from "react";
 import { LinearGradient } from "expo-linear-gradient";
-import fetchHourlyWeather, { fetchWeather } from "../util/weatherService";
 import * as Location from "expo-location";
+import { useDispatch, useSelector } from "react-redux";
+import { fetchWeather } from "../redux/slices/weatherSlice";
 export default function HomePage({ navigation }) {
-  const [hourlyData, setHourlyData] = useState([]);
-  const [currentTemp, setCurrentTemp] = useState();
-  const [status, setStatus] = useState();
-  const [loading, setLoading] = useState();
+  const dispatch = useDispatch();
+  const { data, status, error } = useSelector((state) => state.weather);
+  const loading = status === "loading";
+
   const date = new Date().toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
   });
   useEffect(() => {
     async function loadWeather() {
-      setLoading(true);
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
         Alert.alert(
           "Location Required",
           "We need location permission to show your current weather"
         );
-        setLoading(false);
         return;
       }
       let location = await Location.getCurrentPositionAsync({});
       let lat = location.coords.latitude;
       let lon = location.coords.longitude;
-      console.log(lat, lat);
-      const weather = await fetchWeather({ lat, lon });
-      if (weather) {
-        setCurrentTemp(weather.currentTemp.temp);
-        setHourlyData(weather.hourlyForecast);
-        setStatus(weather.status);
-      }
-      setLoading(false);
+      dispatch(fetchWeather({ lat, lon }));
     }
     loadWeather();
   }, []);
@@ -52,7 +44,6 @@ export default function HomePage({ navigation }) {
   function navigationHandler() {
     navigation.navigate("Forecast");
   }
-
   return (
     <LinearGradient
       colors={["#3E1C74", "#A644C4"]}
@@ -72,14 +63,20 @@ export default function HomePage({ navigation }) {
             style={styles.weatherImage}
             source={require("../assets/rainy.png")}
           />
-          <Text style={styles.degree}>{Math.round(currentTemp)}°C</Text>
-          <Text style={styles.tempInfo}>{status}</Text>
+          <Text style={styles.degree}>
+            {data?.currentTemp?.temp !== undefined
+              ? `${Math.round(data.currentTemp.temp)}°C`
+              : "--"}
+          </Text>
+          <Text style={styles.tempInfo}>
+            {data?.status != undefined ? data.status : "--"}
+          </Text>
           <View style={styles.rowCont}>
             <Text style={styles.tempInfo}>
-              Max: {Math.round(currentTemp) + 2}°C
+              Max: {Math.round(data?.currentTemp?.temp) + 2}°C
             </Text>
             <Text style={styles.tempInfo}>
-              Min: {Math.round(currentTemp) - 2}°C
+              Min: {Math.round(data?.currentTemp?.temp) - 2}°C
             </Text>
           </View>
 
@@ -99,9 +96,9 @@ export default function HomePage({ navigation }) {
                 <Text style={styles.dateText}>{date}</Text>
               </View>
               <View style={styles.outerHoursContainer}>
-                {hourlyData.length > 0 ? (
+                {data?.hourlyForecast.length > 0 ? (
                   <FlatList
-                    data={hourlyData}
+                    data={data?.hourlyForecast}
                     horizontal
                     keyExtractor={(item, index) => index.toString()}
                     renderItem={({ item }) => (
